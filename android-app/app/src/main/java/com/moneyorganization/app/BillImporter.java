@@ -4,8 +4,13 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 public final class BillImporter {
+    private static final Pattern DATE_PATTERN = Pattern.compile("(20\\d{2}[-/年]\\d{1,2}[-/月]\\d{1,2}(?:日)?(?:\\s+\\d{1,2}:\\d{1,2}(?::\\d{1,2})?)?)");
+    private static final Pattern AMOUNT_PATTERN = Pattern.compile("[-－]?(?:¥|￥)?\\s*\\d+(?:\\.\\d{1,2})?");
+
     private BillImporter() {
     }
 
@@ -24,7 +29,7 @@ public final class BillImporter {
                 break;
             }
         }
-        if (headerIndex < 0) return new ArrayList<>();
+        if (headerIndex < 0) return parseLooseLines(lines, source);
 
         String delimiter = guessDelimiter(lines.get(headerIndex));
         List<String> headers = splitLine(lines.get(headerIndex), delimiter);
@@ -45,16 +50,17 @@ public final class BillImporter {
             if (record != null) records.add(record);
         }
 
+        if (records.isEmpty()) return parseLooseLines(lines, source);
         return records;
     }
 
     private static ExpenseRecord normalizeRow(Map<String, String> row, String source) {
-        String dateText = pick(row, "交易时间", "交易创建时间", "付款时间", "时间", "账单时间");
-        String merchant = pick(row, "交易对方", "商户名称", "商品名称", "商品", "商品说明", "交易说明", "收/付款方", "对方");
+        String dateText = pick(row, "交易时间", "交易创建时间", "付款时间", "时间", "账单时间", "发生时间", "记账时间");
+        String merchant = pick(row, "交易对方", "商户名称", "商品名称", "商品", "商品说明", "交易说明", "收/付款方", "对方", "对方名称", "商家", "付款方", "收款方");
         String note = pick(row, "商品名称", "商品", "商品说明", "交易说明", "备注", "类型", "分类");
-        String type = pick(row, "收/支", "收支", "资金流向", "交易类型", "类型");
+        String type = pick(row, "收/支", "收支", "收支类型", "资金流向", "交易类型", "类型");
         String status = pick(row, "交易状态", "当前状态", "状态", "资金状态");
-        String amountText = pick(row, "金额(元)", "金额（元）", "金额", "支出金额", "交易金额", "收入/支出金额(元)", "收入/支出金额（元）");
+        String amountText = pick(row, "金额(元)", "金额（元）", "金额", "支出金额", "交易金额", "收入/支出金额(元)", "收入/支出金额（元）", "收/支金额", "收支金额");
 
         if (dateText.isEmpty() || amountText.isEmpty()) return null;
         if (!isExpense(type, amountText, status, note)) return null;
@@ -74,9 +80,57 @@ public final class BillImporter {
 
     private static boolean isExpense(String type, String amountText, String status, String note) {
         String joined = type + " " + amountText + " " + status + " " + note;
-        if (joined.matches(".*(退款|已退款|收入|转入|已退|还款成功).*")) return false;
-        if (joined.matches(".*(支出|付款|消费|交易成功|支付成功).*")) return true;
-        return amountText.trim().startsWith("-") || amountText.trim().startsWith("－");
+        if (joined.matches(".*(退款|已退款|收入|转入|已退|还款成功|零钱提现|转账收款).*")) return false;
+        if (joined.matches(".*(支出|付款|消费|交易成功|支付成功|扫二维码付款|商户消费|转账付款).*")) return true;
+        String amount = amountText.trim();
+        return amount.startsWith("-") || amount.startsWith("－");
+    }
+
+    private static List<ExpenseRecord> parseLooseLines(List<String> lines, String source) {
+        List<ExpenseRecord> records = new ArrayList<>();
+        for (String line : lines) {
+            if (!couldBeRecord(line)) continue;
+
+            Matcher dateMatcher = DATE_PATTERN.matcher(line);
+            Matcher amountMatcher = AMOUNT_PATTERN.matcher(line);
+            if (!dateMatcher.find()) continue;
+
+            String amountText = "";
+            while (amountMatcher.find()) {
+                amountText = amountMatcher.group();
+            }
+            if (amountText.isEmpty() || !isExpense(line, amountText, "", line)) continue;
+
+            long timeMillis = DateParser.parse(dateMatcher.group(1));
+            double amount = parseAmount(amountText);
+            if (timeMillis <= 0 || amount <= 0) continue;
+
+            String merchant = looseMerchant(line, dateMatcher.group(1), amountText);
+            String category = CategoryRules.classify(merchant + " " + line);
+            String id = "h_" + Math.abs((timeMillis + "|" + amount + "|" + merchant + "|" + source).hashCode());
+            records.add(new ExpenseRecord(id, timeMillis, merchant, line, category, source, amount));
+        }
+        return records;
+    }
+
+    private static boolean couldBeRecord(String line) {
+        if (line.contains("交易时间") || line.contains("导出") || line.contains("微信支付账单")) return false;
+        return line.matches(".*20\\d{2}[-/年]\\d{1,2}[-/月]\\d{1,2}.*") && line.matches(".*\\d+(?:\\.\\d{1,2})?.*");
+    }
+
+    private static String looseMerchant(String line, String dateText, String amountText) {
+        String cleaned = line
+                .replace(dateText, " ")
+                .replace(amountText, " ")
+                .replaceAll("(支出|收入|交易成功|支付成功|付款|消费|零钱|余额|¥|￥|,|\\t)", " ")
+                .replaceAll("\\s+", " ")
+                .trim();
+        if (cleaned.isEmpty()) return "微信账单";
+        String[] parts = cleaned.split(" ");
+        for (String part : parts) {
+            if (!part.matches(".*(成功|完成|支出|收入|支付|付款|微信|账单).*")) return part;
+        }
+        return parts[0];
     }
 
     private static String pick(Map<String, String> row, String... names) {

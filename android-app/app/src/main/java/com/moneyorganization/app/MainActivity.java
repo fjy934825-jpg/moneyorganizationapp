@@ -24,6 +24,7 @@ import android.widget.TextView;
 import android.app.Activity;
 
 import java.io.ByteArrayOutputStream;
+import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
@@ -34,6 +35,8 @@ import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
 
 public class MainActivity extends Activity {
     private static final int REQUEST_IMPORT_BILL = 2001;
@@ -544,14 +547,36 @@ public class MainActivity extends Activity {
         }
     }
 
-    private String decodeBill(byte[] bytes) {
-        String utf8 = new String(bytes, StandardCharsets.UTF_8);
+    private String decodeBill(byte[] bytes) throws Exception {
+        byte[] billBytes = extractBillBytes(bytes);
+        String utf8 = new String(billBytes, StandardCharsets.UTF_8);
         int broken = 0;
         for (int index = 0; index < utf8.length(); index++) {
             if (utf8.charAt(index) == '\uFFFD') broken++;
         }
-        if (broken < 3) return utf8;
-        return new String(bytes, Charset.forName("GB18030"));
+        if (broken < 3) return new String(billBytes, StandardCharsets.UTF_8);
+        return new String(billBytes, Charset.forName("GB18030"));
+    }
+
+    private byte[] extractBillBytes(byte[] bytes) throws Exception {
+        if (bytes.length < 4 || bytes[0] != 'P' || bytes[1] != 'K') return bytes;
+
+        try (ZipInputStream zip = new ZipInputStream(new ByteArrayInputStream(bytes))) {
+            ZipEntry entry;
+            while ((entry = zip.getNextEntry()) != null) {
+                String name = entry.getName() == null ? "" : entry.getName().toLowerCase(Locale.ROOT);
+                if (entry.isDirectory() || !(name.endsWith(".csv") || name.endsWith(".txt"))) continue;
+
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                byte[] buffer = new byte[8192];
+                int count;
+                while ((count = zip.read(buffer)) != -1) {
+                    output.write(buffer, 0, count);
+                }
+                return output.toByteArray();
+            }
+        }
+        return bytes;
     }
 
     private LinearLayout.LayoutParams weightParams(float weight) {

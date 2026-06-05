@@ -8,10 +8,16 @@ public final class DateParser {
     private static final String[] PATTERNS = {
             "yyyy-MM-dd HH:mm:ss",
             "yyyy/MM/dd HH:mm:ss",
+            "yyyy年MM月dd日 HH:mm:ss",
+            "yyyy年M月d日 HH:mm:ss",
             "yyyy-MM-dd HH:mm",
             "yyyy/MM/dd HH:mm",
+            "yyyy年MM月dd日 HH:mm",
+            "yyyy年M月d日 HH:mm",
             "yyyy-MM-dd",
-            "yyyy/MM/dd"
+            "yyyy/MM/dd",
+            "yyyy年MM月dd日",
+            "yyyy年M月d日"
     };
 
     private DateParser() {
