@@ -13,7 +13,13 @@
 
 这是一个 PWA 小应用。手机浏览器访问后，可以通过浏览器菜单选择“添加到主屏幕”，之后就能像 App 一样打开。
 
-PWA 安装和离线缓存通常需要通过本地服务器或 HTTPS 访问。电脑调试时可以在本目录运行：
+PWA 安装和离线缓存通常需要通过本地服务器或 HTTPS 访问。部署到 GitHub Pages 后，手机可以直接访问：
+
+```text
+https://fjy934825-jpg.github.io/moneyorganizationapp/
+```
+
+电脑调试时可以在本目录运行：
 
 ```powershell
 python -m http.server 8080
