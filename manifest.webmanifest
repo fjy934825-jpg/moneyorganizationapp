@@ -1,0 +1,19 @@
+{
+  "name": "月度支出管家",
+  "short_name": "支出管家",
+  "description": "导入微信和支付宝账单，自动识别、分类并汇总每月支出。",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f5f7f8",
+  "theme_color": "#15201d",
+  "icons": [
+    {
+      "src": "icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

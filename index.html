@@ -1,0 +1,132 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>月度支出管家</title>
+    <meta name="theme-color" content="#15201d">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="支出管家">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <link rel="manifest" href="manifest.webmanifest">
+    <link rel="icon" href="icon.svg" type="image/svg+xml">
+    <link rel="apple-touch-icon" href="icon.svg">
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">WeChat / Alipay Expense Tracker</p>
+          <h1>月度支出管家</h1>
+        </div>
+        <div class="toolbar">
+          <label class="file-button" for="billFile">导入账单</label>
+          <input id="billFile" type="file" accept=".csv,.txt,.tsv" multiple>
+          <button id="installBtn" type="button" class="ghost" hidden>安装</button>
+          <button id="sampleBtn" type="button">载入示例</button>
+          <button id="clearBtn" type="button" class="ghost">清空</button>
+        </div>
+      </header>
+
+      <section class="summary-grid" aria-label="支出概览">
+        <article class="metric accent">
+          <span>本月支出</span>
+          <strong id="monthTotal">¥0.00</strong>
+          <small id="monthCount">0 笔支出</small>
+        </article>
+        <article class="metric">
+          <span>最高分类</span>
+          <strong id="topCategory">暂无</strong>
+          <small id="topCategoryAmount">¥0.00</small>
+        </article>
+        <article class="metric">
+          <span>今日支出</span>
+          <strong id="todayTotal">¥0.00</strong>
+          <small id="todayCount">0 笔</small>
+        </article>
+        <article class="metric">
+          <span>数据来源</span>
+          <strong id="sourceMix">暂无</strong>
+          <small>微信 / 支付宝账单</small>
+        </article>
+      </section>
+
+      <section class="workspace">
+        <aside class="panel">
+          <div class="panel-head">
+            <h2>筛选</h2>
+          </div>
+          <label>
+            月份
+            <input id="monthFilter" type="month">
+          </label>
+          <label>
+            分类
+            <select id="categoryFilter">
+              <option value="all">全部分类</option>
+            </select>
+          </label>
+          <label>
+            搜索
+            <input id="searchInput" type="search" placeholder="商户、备注、来源">
+          </label>
+          <div class="hint">
+            支持微信、支付宝导出的 CSV/TXT 账单。工具会自动跳过收入、退款和转账，只统计支出。
+            <span id="pwaStatus">手机上可添加到主屏幕并离线打开。</span>
+          </div>
+        </aside>
+
+        <section class="panel main-panel">
+          <div class="panel-head split">
+            <div>
+              <h2>分类概览</h2>
+              <p id="activeMonthLabel">当前月份</p>
+            </div>
+            <button id="exportBtn" type="button" class="ghost">导出 JSON</button>
+          </div>
+          <div id="categoryChart" class="category-chart"></div>
+        </section>
+      </section>
+
+      <section class="panel records-panel">
+        <div class="panel-head split">
+          <div>
+            <h2>支出明细</h2>
+            <p id="recordStatus">暂无记录</p>
+          </div>
+          <div class="legend">
+            <span><i class="wechat"></i>微信</span>
+            <span><i class="alipay"></i>支付宝</span>
+          </div>
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>日期</th>
+                <th>商户 / 说明</th>
+                <th>来源</th>
+                <th>分类</th>
+                <th class="money">金额</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="recordsBody"></tbody>
+          </table>
+        </div>
+      </section>
+    </main>
+
+    <template id="emptyTemplate">
+      <tr>
+        <td colspan="6" class="empty">
+          <strong>还没有支出记录</strong>
+          <span>导入微信或支付宝账单后，这里会自动按月整理。</span>
+        </td>
+      </tr>
+    </template>
+
+    <script src="app.js"></script>
+  </body>
+</html>
