@@ -60,27 +60,35 @@ public final class BillImporter {
 
     private static List<ExpenseRecord> parseWeChatProofRows(List<String> lines, String source) {
         List<ExpenseRecord> records = new ArrayList<>();
-        for (int index = 0; index + 5 < lines.size(); index++) {
-            DateMatch date = dateAndTimeAt(lines, index);
-            if (date == null) continue;
+        List<String> tokens = proofTokens(lines);
+        for (int index = 0; index + 5 < tokens.size(); index++) {
+            String dateText = tokens.get(index) + " " + tokens.get(index + 1);
+            if (!isDateOnly(tokens.get(index)) || !TIME_PATTERN.matcher(tokens.get(index + 1)).matches()) continue;
 
-            int cursor = index + date.consumedLines;
-            String type = lines.get(cursor++);
-            String direction = lines.get(cursor++);
-            String method = lines.get(cursor++);
-            String amountText = lines.get(cursor++);
+            int directionIndex = findDirection(tokens, index + 2, Math.min(index + 10, tokens.size()));
+            if (directionIndex < 0 || directionIndex + 2 >= tokens.size()) continue;
+
+            String type = joinTokens(tokens, index + 2, directionIndex);
+            String direction = tokens.get(directionIndex);
+            String method = tokens.get(directionIndex + 1);
+            int amountIndex = findAmount(tokens, directionIndex + 2, Math.min(directionIndex + 7, tokens.size()));
+            if (amountIndex < 0) continue;
+
+            String amountText = tokens.get(amountIndex);
             if (!isExpense(direction, amountText, type, method)) continue;
 
             StringBuilder merchant = new StringBuilder();
-            while (cursor < lines.size() && dateAndTimeAt(lines, cursor) == null) {
-                String line = lines.get(cursor);
-                if (isOrderLike(line)) break;
-                merchant.append(line.trim());
+            int cursor = amountIndex + 1;
+            while (cursor < tokens.size()) {
+                if (cursor + 1 < tokens.size() && isDateOnly(tokens.get(cursor)) && TIME_PATTERN.matcher(tokens.get(cursor + 1)).matches()) break;
+                String token = tokens.get(cursor);
+                if (isOrderLike(token)) break;
+                merchant.append(token.trim());
                 cursor++;
             }
 
             double amount = parseAmount(amountText);
-            long timeMillis = DateParser.parse(date.text);
+            long timeMillis = DateParser.parse(dateText);
             if (amount <= 0 || timeMillis <= 0) continue;
 
             String safeMerchant = merchant.length() == 0 ? type : merchant.toString();
@@ -90,6 +98,37 @@ public final class BillImporter {
             records.add(new ExpenseRecord(id, timeMillis, safeMerchant, note, category, source, amount));
         }
         return records;
+    }
+
+    private static List<String> proofTokens(List<String> lines) {
+        List<String> tokens = new ArrayList<>();
+        for (String line : lines) {
+            for (String token : line.trim().split("\\s+")) {
+                if (!token.isEmpty()) tokens.add(token);
+            }
+        }
+        return tokens;
+    }
+
+    private static int findDirection(List<String> tokens, int start, int end) {
+        for (int index = start; index < end; index++) {
+            String token = tokens.get(index);
+            if ("支出".equals(token) || "收入".equals(token) || "其他".equals(token)) return index;
+        }
+        return -1;
+    }
+
+    private static int findAmount(List<String> tokens, int start, int end) {
+        for (int index = start; index < end; index++) {
+            if (isMoneyAmount(tokens.get(index))) return index;
+        }
+        return -1;
+    }
+
+    private static String joinTokens(List<String> tokens, int start, int end) {
+        StringBuilder value = new StringBuilder();
+        for (int index = start; index < end; index++) value.append(tokens.get(index));
+        return value.toString();
     }
 
     private static ExpenseRecord normalizeRow(Map<String, String> row, String source) {
@@ -215,8 +254,17 @@ public final class BillImporter {
     private static boolean isOrderLike(String line) {
         String normalized = line.replaceAll("\\s", "");
         if (normalized.equals("/") || normalized.isEmpty()) return true;
+        if (isMoneyAmount(normalized)) return false;
         if (normalized.matches("[0-9_\\-]{8,}")) return true;
         return normalized.matches("[A-Z0-9_\\-]{12,}");
+    }
+
+    private static boolean isDateOnly(String value) {
+        return value.matches("20\\d{2}[-/年]\\d{1,2}[-/月]\\d{1,2}(?:日)?");
+    }
+
+    private static boolean isMoneyAmount(String value) {
+        return value.replaceAll("\\s", "").matches("[-－]?(?:¥|￥)?\\d{1,7}\\.\\d{1,2}元?");
     }
 
     private static String lastAmount(String text) {

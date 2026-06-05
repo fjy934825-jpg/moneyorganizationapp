@@ -36,6 +36,7 @@ import java.text.DateFormatSymbols;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Calendar;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -534,9 +535,28 @@ public class MainActivity extends Activity {
                 .setTitle(imported.isEmpty() ? "没有识别到账单" : "导入完成")
                 .setMessage(imported.isEmpty()
                         ? importFailureMessage(text)
-                        : "识别到 " + imported.size() + " 笔支出，新增 " + added + " 笔。")
+                        : importSuccessMessage(imported, added))
                 .setPositiveButton("好", null)
                 .show();
+    }
+
+    private String importSuccessMessage(List<ExpenseRecord> imported, int added) {
+        StringBuilder message = new StringBuilder();
+        message.append("识别到 ").append(imported.size()).append(" 笔支出，新增 ").append(added).append(" 笔。\n");
+        message.append("本次账单总支出 ").append(money(store.sum(imported))).append("。");
+
+        Map<String, Double> monthlyTotals = new LinkedHashMap<>();
+        for (ExpenseRecord record : imported) {
+            Calendar date = Calendar.getInstance();
+            date.setTimeInMillis(record.timeMillis);
+            String key = date.get(Calendar.YEAR) + "年" + (date.get(Calendar.MONTH) + 1) + "月";
+            Double previous = monthlyTotals.get(key);
+            monthlyTotals.put(key, (previous == null ? 0 : previous) + record.amount);
+        }
+        for (Map.Entry<String, Double> entry : monthlyTotals.entrySet()) {
+            message.append("\n").append(entry.getKey()).append("：").append(money(entry.getValue()));
+        }
+        return message.toString();
     }
 
     private String importFailureMessage(String text) {
