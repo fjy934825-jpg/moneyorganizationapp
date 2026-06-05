@@ -21,6 +21,10 @@ import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
 
+import com.tom_roush.pdfbox.android.PDFBoxResourceLoader;
+import com.tom_roush.pdfbox.pdmodel.PDDocument;
+import com.tom_roush.pdfbox.text.PDFTextStripper;
+
 import android.app.Activity;
 
 import java.io.ByteArrayOutputStream;
@@ -406,6 +410,7 @@ public class MainActivity extends Activity {
         intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
                 "text/*",
                 "text/csv",
+                "application/pdf",
                 "application/vnd.ms-excel",
                 "application/octet-stream"
         });
@@ -549,6 +554,8 @@ public class MainActivity extends Activity {
 
     private String decodeBill(byte[] bytes) throws Exception {
         byte[] billBytes = extractBillBytes(bytes);
+        if (isPdf(billBytes)) return extractPdfText(billBytes);
+
         String utf8 = new String(billBytes, StandardCharsets.UTF_8);
         int broken = 0;
         for (int index = 0; index < utf8.length(); index++) {
@@ -577,6 +584,17 @@ public class MainActivity extends Activity {
             }
         }
         return bytes;
+    }
+
+    private boolean isPdf(byte[] bytes) {
+        return bytes.length >= 4 && bytes[0] == '%' && bytes[1] == 'P' && bytes[2] == 'D' && bytes[3] == 'F';
+    }
+
+    private String extractPdfText(byte[] bytes) throws Exception {
+        PDFBoxResourceLoader.init(getApplicationContext());
+        try (PDDocument document = PDDocument.load(new ByteArrayInputStream(bytes))) {
+            return new PDFTextStripper().getText(document);
+        }
     }
 
     private LinearLayout.LayoutParams weightParams(float weight) {
