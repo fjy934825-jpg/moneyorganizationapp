@@ -41,6 +41,7 @@ public class MainActivity extends Activity {
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd HH:mm", Locale.CHINA);
     private final Calendar selectedMonth = Calendar.getInstance();
     private int animatedIndex = 0;
+    private Uri lastHandledImportUri;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -49,6 +50,14 @@ public class MainActivity extends Activity {
         selectedMonth.set(Calendar.DAY_OF_MONTH, 1);
         buildLayout();
         requestPostNotificationPermission();
+        handleIncomingIntent(getIntent());
+    }
+
+    @Override
+    protected void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleIncomingIntent(intent);
     }
 
     @Override
@@ -437,6 +446,25 @@ public class MainActivity extends Activity {
                     .setPositiveButton("好", null)
                     .show();
         }
+    }
+
+    private void handleIncomingIntent(Intent intent) {
+        if (intent == null) return;
+
+        Uri uri = null;
+        if (Intent.ACTION_VIEW.equals(intent.getAction())) {
+            uri = intent.getData();
+        } else if (Intent.ACTION_SEND.equals(intent.getAction())) {
+            Object stream = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+            if (stream instanceof Uri) {
+                uri = (Uri) stream;
+            }
+        }
+
+        if (uri == null) return;
+        if (lastHandledImportUri != null && lastHandledImportUri.equals(uri)) return;
+        lastHandledImportUri = uri;
+        importBill(uri);
     }
 
     private byte[] readAllBytes(Uri uri) throws Exception {
