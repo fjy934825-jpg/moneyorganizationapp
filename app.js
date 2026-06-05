@@ -69,10 +69,12 @@ const els = {
 
 let records = loadRecords();
 let deferredInstallPrompt = null;
+let remoteSyncAvailable = false;
+let isRemoteSyncing = false;
 
 init();
 
-function init() {
+async function init() {
   populateCategoryFilter();
   els.monthFilter.value = latestMonth(records) || currentMonth();
   setupPwa();
@@ -86,6 +88,7 @@ function init() {
   els.monthFilter.addEventListener("change", render);
   els.categoryFilter.addEventListener("change", render);
   els.searchInput.addEventListener("input", render);
+  await loadRemoteRecords();
   render();
 }
 
@@ -509,6 +512,7 @@ function loadSample() {
 
 function saveRecords() {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  saveRemoteRecords();
 }
 
 function loadRecords() {
@@ -517,6 +521,47 @@ function loadRecords() {
   } catch {
     return [];
   }
+}
+
+async function loadRemoteRecords() {
+  try {
+    const response = await fetchWithTimeout("/api/records", { timeout: 800 });
+    if (!response.ok) return;
+    const remoteRecords = await response.json();
+    if (!Array.isArray(remoteRecords)) return;
+
+    remoteSyncAvailable = true;
+    const map = new Map(records.map((record) => [record.id, record]));
+    remoteRecords.forEach((record) => map.set(record.id, record));
+    records = [...map.values()].sort((a, b) => b.date.localeCompare(a.date));
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(records));
+  } catch {
+    remoteSyncAvailable = false;
+  }
+}
+
+async function saveRemoteRecords() {
+  if (!remoteSyncAvailable || isRemoteSyncing) return;
+  isRemoteSyncing = true;
+  try {
+    await fetchWithTimeout("/api/records", {
+      method: "PUT",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify(records),
+      timeout: 1200,
+    });
+  } catch {
+    remoteSyncAvailable = false;
+  } finally {
+    isRemoteSyncing = false;
+  }
+}
+
+function fetchWithTimeout(url, options = {}) {
+  const { timeout = 1000, ...fetchOptions } = options;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeout);
+  return fetch(url, { ...fetchOptions, signal: controller.signal }).finally(() => clearTimeout(timer));
 }
 
 function sum(list) {

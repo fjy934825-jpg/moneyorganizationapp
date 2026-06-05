@@ -28,6 +28,25 @@ python -m http.server 8080
 
 然后在浏览器访问 `http://localhost:8080`。如果要在手机上用，建议把这个文件夹部署到支持 HTTPS 的静态网站，或让手机访问同一局域网里的电脑地址。
 
+## 微信记账助手
+
+如果不想在手机上导入或粘贴账单，可以运行 `wechat-bot` 本地助手。它支持把文字账单、微信/支付宝 CSV 或 TXT 文件发给登录的微信号，自动识别并写入本地账本。
+
+```powershell
+cd wechat-bot
+npm install
+npm run login
+npm run start
+```
+
+启动后访问：
+
+```text
+http://localhost:8787
+```
+
+这个地址打开的网页会读取微信助手写入的同一份数据。
+
 ## 支持能力
 
 - 支持微信支付账单、支付宝账单常见导出格式。
