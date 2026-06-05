@@ -533,10 +533,19 @@ public class MainActivity extends Activity {
         new AlertDialog.Builder(this)
                 .setTitle(imported.isEmpty() ? "没有识别到账单" : "导入完成")
                 .setMessage(imported.isEmpty()
-                        ? "支出管家收到了内容，但没有识别到支出记录。请确认打开的是微信/支付宝导出的账单文件。"
+                        ? importFailureMessage(text)
                         : "识别到 " + imported.size() + " 笔支出，新增 " + added + " 笔。")
                 .setPositiveButton("好", null)
                 .show();
+    }
+
+    private String importFailureMessage(String text) {
+        String preview = text == null ? "" : text.replaceAll("\\s+", " ").trim();
+        if (preview.length() > 180) preview = preview.substring(0, 180) + "...";
+        if (preview.isEmpty()) {
+            return "支出管家打开了文件，但没有从 PDF 里读取到文字。这个文件可能是图片版 PDF，需要 OCR 才能识别。";
+        }
+        return "支出管家已经读取到文件文字，但没有匹配到账单记录。已读取内容预览：\n\n" + preview;
     }
 
     private byte[] readAllBytes(Uri uri) throws Exception {

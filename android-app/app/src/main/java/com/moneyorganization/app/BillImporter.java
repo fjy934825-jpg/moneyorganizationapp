@@ -9,7 +9,8 @@ import java.util.regex.Pattern;
 
 public final class BillImporter {
     private static final Pattern DATE_PATTERN = Pattern.compile("(20\\d{2}[-/年]\\d{1,2}[-/月]\\d{1,2}(?:日)?(?:\\s+\\d{1,2}:\\d{1,2}(?::\\d{1,2})?)?)");
-    private static final Pattern AMOUNT_PATTERN = Pattern.compile("[-－]?(?:¥|￥)?\\s*\\d+(?:\\.\\d{1,2})?");
+    private static final Pattern TIME_PATTERN = Pattern.compile("^\\d{1,2}:\\d{1,2}(?::\\d{1,2})?$");
+    private static final Pattern AMOUNT_PATTERN = Pattern.compile("[-－]?(?:(?:¥|￥)\\s*\\d+(?:\\.\\d{1,2})?|\\d+(?:\\.\\d{1,2})\\s*元|\\d{1,7}\\.\\d{1,2})");
 
     private BillImporter() {
     }
@@ -29,7 +30,7 @@ public final class BillImporter {
                 break;
             }
         }
-        if (headerIndex < 0) return parseLooseLines(lines, source);
+        if (headerIndex < 0) return parsePdfBlocks(lines, source);
 
         String delimiter = guessDelimiter(lines.get(headerIndex));
         List<String> headers = splitLine(lines.get(headerIndex), delimiter);
@@ -50,7 +51,7 @@ public final class BillImporter {
             if (record != null) records.add(record);
         }
 
-        if (records.isEmpty()) return parseLooseLines(lines, source);
+        if (records.isEmpty()) return parsePdfBlocks(lines, source);
         return records;
     }
 
@@ -111,6 +112,64 @@ public final class BillImporter {
             records.add(new ExpenseRecord(id, timeMillis, merchant, line, category, source, amount));
         }
         return records;
+    }
+
+    private static List<ExpenseRecord> parsePdfBlocks(List<String> lines, String source) {
+        List<ExpenseRecord> records = parseLooseLines(lines, source);
+        if (!records.isEmpty()) return records;
+
+        for (int index = 0; index < lines.size(); index++) {
+            DateMatch date = dateAt(lines, index);
+            if (date == null) continue;
+
+            StringBuilder block = new StringBuilder(date.text);
+            int nextIndex = index + date.consumedLines;
+            while (nextIndex < lines.size() && dateAt(lines, nextIndex) == null) {
+                block.append(' ').append(lines.get(nextIndex));
+                nextIndex++;
+            }
+
+            ExpenseRecord record = parseBlock(block.toString(), date.text, source);
+            if (record != null) records.add(record);
+            index = Math.max(index, nextIndex - 1);
+        }
+        return records;
+    }
+
+    private static ExpenseRecord parseBlock(String block, String dateText, String source) {
+        String amountText = lastAmount(block);
+        if (amountText.isEmpty() || !isExpense(block, amountText, "", block)) return null;
+
+        long timeMillis = DateParser.parse(dateText);
+        double amount = parseAmount(amountText);
+        if (timeMillis <= 0 || amount <= 0) return null;
+
+        String merchant = looseMerchant(block, dateText, amountText);
+        String category = CategoryRules.classify(merchant + " " + block);
+        String id = "h_" + Math.abs((timeMillis + "|" + amount + "|" + merchant + "|" + source).hashCode());
+        return new ExpenseRecord(id, timeMillis, merchant, block, category, source, amount);
+    }
+
+    private static DateMatch dateAt(List<String> lines, int index) {
+        if (index + 1 < lines.size()) {
+            String nextLine = lines.get(index + 1).trim();
+            if (TIME_PATTERN.matcher(nextLine).matches()) {
+                String combined = lines.get(index).trim() + " " + nextLine;
+                Matcher combinedDate = DATE_PATTERN.matcher(combined);
+                if (combinedDate.find()) return new DateMatch(combinedDate.group(1), 2);
+            }
+        }
+
+        Matcher fullDate = DATE_PATTERN.matcher(lines.get(index));
+        if (fullDate.find()) return new DateMatch(fullDate.group(1), 1);
+        return null;
+    }
+
+    private static String lastAmount(String text) {
+        Matcher matcher = AMOUNT_PATTERN.matcher(text);
+        String amount = "";
+        while (matcher.find()) amount = matcher.group();
+        return amount;
     }
 
     private static boolean couldBeRecord(String line) {
@@ -194,5 +253,15 @@ public final class BillImporter {
 
     private static String clean(String value) {
         return value.replaceAll("^\"+|\"+$", "").trim();
+    }
+
+    private static final class DateMatch {
+        final String text;
+        final int consumedLines;
+
+        DateMatch(String text, int consumedLines) {
+            this.text = text;
+            this.consumedLines = consumedLines;
+        }
     }
 }
