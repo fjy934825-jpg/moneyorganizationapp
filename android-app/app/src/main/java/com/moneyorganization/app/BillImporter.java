@@ -22,6 +22,9 @@ public final class BillImporter {
             if (!line.isEmpty()) lines.add(line);
         }
 
+        List<ExpenseRecord> weChatProofRecords = parseWeChatProofRows(lines, source);
+        if (!weChatProofRecords.isEmpty()) return weChatProofRecords;
+
         int headerIndex = -1;
         for (int index = 0; index < lines.size(); index++) {
             String normalized = lines.get(index).replaceAll("\\s", "");
@@ -52,6 +55,40 @@ public final class BillImporter {
         }
 
         if (records.isEmpty()) return parsePdfBlocks(lines, source);
+        return records;
+    }
+
+    private static List<ExpenseRecord> parseWeChatProofRows(List<String> lines, String source) {
+        List<ExpenseRecord> records = new ArrayList<>();
+        for (int index = 0; index + 5 < lines.size(); index++) {
+            DateMatch date = dateAndTimeAt(lines, index);
+            if (date == null) continue;
+
+            int cursor = index + date.consumedLines;
+            String type = lines.get(cursor++);
+            String direction = lines.get(cursor++);
+            String method = lines.get(cursor++);
+            String amountText = lines.get(cursor++);
+            if (!isExpense(direction, amountText, type, method)) continue;
+
+            StringBuilder merchant = new StringBuilder();
+            while (cursor < lines.size() && dateAndTimeAt(lines, cursor) == null) {
+                String line = lines.get(cursor);
+                if (isOrderLike(line)) break;
+                merchant.append(line.trim());
+                cursor++;
+            }
+
+            double amount = parseAmount(amountText);
+            long timeMillis = DateParser.parse(date.text);
+            if (amount <= 0 || timeMillis <= 0) continue;
+
+            String safeMerchant = merchant.length() == 0 ? type : merchant.toString();
+            String note = type + " " + method;
+            String category = CategoryRules.classify(safeMerchant + " " + note);
+            String id = "h_" + Math.abs((timeMillis + "|" + amount + "|" + safeMerchant + "|" + source).hashCode());
+            records.add(new ExpenseRecord(id, timeMillis, safeMerchant, note, category, source, amount));
+        }
         return records;
     }
 
@@ -163,6 +200,23 @@ public final class BillImporter {
         Matcher fullDate = DATE_PATTERN.matcher(lines.get(index));
         if (fullDate.find()) return new DateMatch(fullDate.group(1), 1);
         return null;
+    }
+
+    private static DateMatch dateAndTimeAt(List<String> lines, int index) {
+        if (index + 1 >= lines.size()) return null;
+        String nextLine = lines.get(index + 1).trim();
+        if (!TIME_PATTERN.matcher(nextLine).matches()) return null;
+
+        String combined = lines.get(index).trim() + " " + nextLine;
+        Matcher matcher = DATE_PATTERN.matcher(combined);
+        return matcher.find() ? new DateMatch(matcher.group(1), 2) : null;
+    }
+
+    private static boolean isOrderLike(String line) {
+        String normalized = line.replaceAll("\\s", "");
+        if (normalized.equals("/") || normalized.isEmpty()) return true;
+        if (normalized.matches("[0-9_\\-]{8,}")) return true;
+        return normalized.matches("[A-Z0-9_\\-]{12,}");
     }
 
     private static String lastAmount(String text) {
