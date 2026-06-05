@@ -2,6 +2,7 @@ package com.moneyorganization.app;
 
 import android.Manifest;
 import android.app.AlertDialog;
+import android.content.ClipData;
 import android.content.ComponentName;
 import android.content.Intent;
 import android.content.pm.PackageManager;
@@ -28,6 +29,7 @@ import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.text.DateFormatSymbols;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Calendar;
 import java.util.List;
 import java.util.Locale;
@@ -451,20 +453,82 @@ public class MainActivity extends Activity {
     private void handleIncomingIntent(Intent intent) {
         if (intent == null) return;
 
+        boolean externalImportIntent = Intent.ACTION_VIEW.equals(intent.getAction())
+                || Intent.ACTION_SEND.equals(intent.getAction())
+                || Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction());
         Uri uri = null;
         if (Intent.ACTION_VIEW.equals(intent.getAction())) {
             uri = intent.getData();
         } else if (Intent.ACTION_SEND.equals(intent.getAction())) {
-            Object stream = intent.getParcelableExtra(Intent.EXTRA_STREAM);
-            if (stream instanceof Uri) {
-                uri = (Uri) stream;
-            }
+            uri = uriFromStreamExtra(intent);
+        } else if (Intent.ACTION_SEND_MULTIPLE.equals(intent.getAction())) {
+            uri = uriFromMultipleStreamExtra(intent);
         }
 
+        if (uri == null) {
+            uri = uriFromClipData(intent);
+        }
+        if (uri == null && (Intent.ACTION_SEND.equals(intent.getAction()) || Intent.ACTION_VIEW.equals(intent.getAction()))) {
+            importSharedText(intent);
+            return;
+        }
+        if (uri == null && externalImportIntent) {
+            new AlertDialog.Builder(this)
+                    .setTitle("没有收到文件")
+                    .setMessage("支出管家已被打开，但系统没有把账单文件传过来。请在微信账单文件页面选择“用其他应用打开”或“分享”，再选择支出管家。")
+                    .setPositiveButton("好", null)
+                    .show();
+            return;
+        }
         if (uri == null) return;
         if (lastHandledImportUri != null && lastHandledImportUri.equals(uri)) return;
         lastHandledImportUri = uri;
         importBill(uri);
+    }
+
+    private Uri uriFromStreamExtra(Intent intent) {
+        Object stream = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        return stream instanceof Uri ? (Uri) stream : null;
+    }
+
+    private Uri uriFromMultipleStreamExtra(Intent intent) {
+        ArrayList<Uri> streams = intent.getParcelableArrayListExtra(Intent.EXTRA_STREAM);
+        return streams == null || streams.isEmpty() ? null : streams.get(0);
+    }
+
+    private Uri uriFromClipData(Intent intent) {
+        ClipData clipData = intent.getClipData();
+        if (clipData == null || clipData.getItemCount() == 0) return null;
+        return clipData.getItemAt(0).getUri();
+    }
+
+    private void importSharedText(Intent intent) {
+        CharSequence text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT);
+        if (text == null || text.toString().trim().isEmpty()) return;
+        importBillText(text.toString(), "分享文本");
+    }
+
+    private void importBillText(String text, String source) {
+        List<ExpenseRecord> imported = BillImporter.parse(text, source);
+        int added = 0;
+        for (ExpenseRecord record : imported) {
+            if (store.add(record)) added++;
+        }
+        if (!imported.isEmpty()) {
+            Calendar date = Calendar.getInstance();
+            date.setTimeInMillis(imported.get(0).timeMillis);
+            selectedMonth.set(Calendar.YEAR, date.get(Calendar.YEAR));
+            selectedMonth.set(Calendar.MONTH, date.get(Calendar.MONTH));
+            selectedMonth.set(Calendar.DAY_OF_MONTH, 1);
+        }
+        render();
+        new AlertDialog.Builder(this)
+                .setTitle(imported.isEmpty() ? "没有识别到账单" : "导入完成")
+                .setMessage(imported.isEmpty()
+                        ? "支出管家收到了内容，但没有识别到支出记录。请确认打开的是微信/支付宝导出的账单文件。"
+                        : "识别到 " + imported.size() + " 笔支出，新增 " + added + " 笔。")
+                .setPositiveButton("好", null)
+                .show();
     }
 
     private byte[] readAllBytes(Uri uri) throws Exception {
