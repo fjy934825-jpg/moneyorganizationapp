@@ -23,6 +23,7 @@
         <div class="toolbar">
           <label class="file-button" for="billFile">导入账单</label>
           <input id="billFile" type="file" accept=".csv,.txt,.tsv" multiple>
+          <button id="pasteToggleBtn" type="button" class="ghost">粘贴账单</button>
           <button id="installBtn" type="button" class="ghost" hidden>安装</button>
           <button id="sampleBtn" type="button">载入示例</button>
           <button id="clearBtn" type="button" class="ghost">清空</button>
@@ -78,6 +79,17 @@
         </aside>
 
         <section class="panel main-panel">
+          <div id="pastePanel" class="paste-panel" hidden>
+            <div class="panel-head split">
+              <div>
+                <h2>粘贴账单</h2>
+                <p>复制微信或支付宝账单表格内容，粘贴后直接识别。</p>
+              </div>
+              <button id="pasteImportBtn" type="button">识别粘贴内容</button>
+            </div>
+            <textarea id="pasteInput" rows="8" placeholder="在这里粘贴账单内容，包含表头如：交易时间、交易对方、收/支、金额（元）"></textarea>
+            <p id="pasteStatus" class="paste-status">适合手机使用：从账单文件、邮箱、表格或聊天记录复制文本后粘贴。</p>
+          </div>
           <div class="panel-head split">
             <div>
               <h2>分类概览</h2>

@@ -40,6 +40,11 @@ const categoryRules = [
 
 const els = {
   file: document.querySelector("#billFile"),
+  pasteToggleBtn: document.querySelector("#pasteToggleBtn"),
+  pastePanel: document.querySelector("#pastePanel"),
+  pasteInput: document.querySelector("#pasteInput"),
+  pasteImportBtn: document.querySelector("#pasteImportBtn"),
+  pasteStatus: document.querySelector("#pasteStatus"),
   installBtn: document.querySelector("#installBtn"),
   sampleBtn: document.querySelector("#sampleBtn"),
   clearBtn: document.querySelector("#clearBtn"),
@@ -72,6 +77,8 @@ function init() {
   els.monthFilter.value = latestMonth(records) || currentMonth();
   setupPwa();
   els.file.addEventListener("change", handleFiles);
+  els.pasteToggleBtn.addEventListener("click", togglePastePanel);
+  els.pasteImportBtn.addEventListener("click", importPastedBill);
   els.installBtn.addEventListener("click", installApp);
   els.sampleBtn.addEventListener("click", loadSample);
   els.clearBtn.addEventListener("click", clearRecords);
@@ -79,6 +86,33 @@ function init() {
   els.monthFilter.addEventListener("change", render);
   els.categoryFilter.addEventListener("change", render);
   els.searchInput.addEventListener("input", render);
+  render();
+}
+
+function togglePastePanel() {
+  els.pastePanel.hidden = !els.pastePanel.hidden;
+  if (!els.pastePanel.hidden) els.pasteInput.focus();
+}
+
+function importPastedBill() {
+  const text = els.pasteInput.value.trim();
+  if (!text) {
+    els.pasteStatus.textContent = "请先粘贴账单内容。";
+    return;
+  }
+
+  const imported = parseBill(text, "粘贴账单.txt");
+  if (!imported.length) {
+    els.pasteStatus.textContent = "没有识别到支出记录。请确认粘贴内容包含表头和金额列。";
+    return;
+  }
+
+  const before = records.length;
+  mergeRecords(imported);
+  const added = records.length - before;
+  els.pasteStatus.textContent = `已识别 ${imported.length} 笔支出，新增 ${Math.max(added, 0)} 笔。`;
+  els.pasteInput.value = "";
+  if (imported[0]?.date) els.monthFilter.value = imported[0].date.slice(0, 7);
   render();
 }
 
