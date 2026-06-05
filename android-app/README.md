@@ -18,6 +18,8 @@
 3. 等待 Gradle 同步完成。
 4. 点击 Run 安装到安卓手机。
 
+也可以在 GitHub 仓库的 Actions 页面运行 `Build Android APK`，完成后下载 `moneyorganizationapp-debug-apk`。
+
 ## 手机上开启
 
 1. 打开 App。

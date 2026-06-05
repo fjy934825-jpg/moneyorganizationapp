@@ -51,6 +51,8 @@ http://localhost:8787
 
 如果使用安卓手机，可以打开 `android-app` 项目，用 Android Studio 构建安装。安装后在系统里开启“通知使用权”，App 会自动识别微信和支付宝的支付通知并记录到本机。App 支持历史月份、年度账单、分类汇总，以及每月 1500 元红线提醒。
 
+也可以在 GitHub 的 Actions 页面运行 `Build Android APK` 自动打包，完成后下载 `moneyorganizationapp-debug-apk`。
+
 详见：
 
 ```text
