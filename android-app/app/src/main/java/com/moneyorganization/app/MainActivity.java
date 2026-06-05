@@ -126,7 +126,7 @@ public class MainActivity extends Activity {
     }
 
     private View permissionCard() {
-        LinearLayout card = card();
+        LinearLayout card = card(0xFFFFFFFF, 0x221F8A64);
         TextView heading = text("先开启通知使用权", 19, 0xFF15201D, Typeface.BOLD);
         TextView body = text("打开后，本应用只能读取通知栏文本，用来识别微信和支付宝的支出通知。", 14, 0xFF63706C, Typeface.NORMAL);
         body.setPadding(0, dp(8), 0, dp(14));
