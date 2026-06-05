@@ -8,6 +8,7 @@ import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
 import android.provider.Settings;
@@ -21,6 +22,10 @@ import android.widget.TextView;
 
 import android.app.Activity;
 
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.charset.Charset;
+import java.nio.charset.StandardCharsets;
 import java.text.DateFormatSymbols;
 import java.text.SimpleDateFormat;
 import java.util.Calendar;
@@ -29,6 +34,8 @@ import java.util.Locale;
 import java.util.Map;
 
 public class MainActivity extends Activity {
+    private static final int REQUEST_IMPORT_BILL = 2001;
+
     private ExpenseStore store;
     private LinearLayout content;
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd HH:mm", Locale.CHINA);
@@ -72,6 +79,9 @@ public class MainActivity extends Activity {
         TextView title = text("支出管家", 34, 0xFF15201D, Typeface.BOLD);
         title.setPadding(0, dp(6), 0, dp(16));
         content.addView(title);
+
+        content.addView(importCard());
+        animateIn(content.getChildAt(content.getChildCount() - 1));
 
         if (!isNotificationListenerEnabled()) {
             content.addView(permissionCard());
@@ -132,6 +142,19 @@ public class MainActivity extends Activity {
         body.setPadding(0, dp(8), 0, dp(14));
         Button button = button("去开启");
         button.setOnClickListener(v -> startActivity(new Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)));
+        card.addView(heading);
+        card.addView(body);
+        card.addView(button);
+        return card;
+    }
+
+    private View importCard() {
+        LinearLayout card = card(0xFFFFFFFF, 0x223867C8);
+        TextView heading = text("导入以前的支付记录", 19, 0xFF15201D, Typeface.BOLD);
+        TextView body = text("选择微信或支付宝导出的 CSV/TXT 历史账单，App 会批量识别支出并自动去重。", 14, 0xFF63706C, Typeface.NORMAL);
+        body.setPadding(0, dp(8), 0, dp(14));
+        Button button = button("选择账单文件");
+        button.setOnClickListener(v -> openBillFilePicker());
         card.addView(heading);
         card.addView(body);
         card.addView(button);
@@ -360,6 +383,83 @@ public class MainActivity extends Activity {
                 && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
             requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS}, 1001);
         }
+    }
+
+    private void openBillFilePicker() {
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[]{
+                "text/*",
+                "text/csv",
+                "application/vnd.ms-excel",
+                "application/octet-stream"
+        });
+        startActivityForResult(intent, REQUEST_IMPORT_BILL);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (requestCode != REQUEST_IMPORT_BILL || resultCode != RESULT_OK || data == null || data.getData() == null) {
+            return;
+        }
+        importBill(data.getData());
+    }
+
+    private void importBill(Uri uri) {
+        try {
+            byte[] bytes = readAllBytes(uri);
+            String text = decodeBill(bytes);
+            String source = uri.getLastPathSegment() == null ? "历史账单" : uri.getLastPathSegment();
+            List<ExpenseRecord> imported = BillImporter.parse(text, source);
+            int added = 0;
+            for (ExpenseRecord record : imported) {
+                if (store.add(record)) added++;
+            }
+            if (!imported.isEmpty()) {
+                Calendar date = Calendar.getInstance();
+                date.setTimeInMillis(imported.get(0).timeMillis);
+                selectedMonth.set(Calendar.YEAR, date.get(Calendar.YEAR));
+                selectedMonth.set(Calendar.MONTH, date.get(Calendar.MONTH));
+                selectedMonth.set(Calendar.DAY_OF_MONTH, 1);
+            }
+            render();
+            new AlertDialog.Builder(this)
+                    .setTitle("导入完成")
+                    .setMessage("识别到 " + imported.size() + " 笔支出，新增 " + added + " 笔。")
+                    .setPositiveButton("好", null)
+                    .show();
+        } catch (Exception error) {
+            new AlertDialog.Builder(this)
+                    .setTitle("导入失败")
+                    .setMessage("没有成功读取这个账单文件：" + error.getMessage())
+                    .setPositiveButton("好", null)
+                    .show();
+        }
+    }
+
+    private byte[] readAllBytes(Uri uri) throws Exception {
+        try (InputStream input = getContentResolver().openInputStream(uri);
+             ByteArrayOutputStream output = new ByteArrayOutputStream()) {
+            if (input == null) throw new IllegalStateException("无法打开文件");
+            byte[] buffer = new byte[8192];
+            int count;
+            while ((count = input.read(buffer)) != -1) {
+                output.write(buffer, 0, count);
+            }
+            return output.toByteArray();
+        }
+    }
+
+    private String decodeBill(byte[] bytes) {
+        String utf8 = new String(bytes, StandardCharsets.UTF_8);
+        int broken = 0;
+        for (int index = 0; index < utf8.length(); index++) {
+            if (utf8.charAt(index) == '\uFFFD') broken++;
+        }
+        if (broken < 3) return utf8;
+        return new String(bytes, Charset.forName("GB18030"));
     }
 
     private LinearLayout.LayoutParams weightParams(float weight) {
