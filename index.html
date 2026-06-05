@@ -3,30 +3,38 @@
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>月度支出管家</title>
-    <meta name="theme-color" content="#15201d">
+    <title>支出管家</title>
+    <meta name="theme-color" content="#16a05d">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-title" content="支出管家">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
     <link rel="manifest" href="manifest.webmanifest">
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icon.svg">
     <link rel="stylesheet" href="styles.css">
   </head>
   <body>
-    <main class="shell">
-      <header class="topbar">
-        <div>
-          <p class="eyebrow">WeChat / Alipay Expense Tracker</p>
-          <h1>月度支出管家</h1>
+    <main id="tool" class="app-shell">
+      <header class="tool-header">
+        <div class="title-block">
+          <span class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 24 24">
+              <path d="M7.5 3.5h9l2 2v15h-13v-17h2z" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+              <path d="m8.6 12.1 2.2 2.2 4.6-5.1" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+            </svg>
+          </span>
+          <div>
+            <p class="eyebrow">微信 / 支付宝账单管理</p>
+            <h1>支出管家</h1>
+          </div>
         </div>
         <div class="toolbar">
           <label class="file-button" for="billFile">导入账单</label>
-          <input id="billFile" type="file" accept=".csv,.txt,.tsv" multiple>
+          <input id="billFile" type="file" accept=".csv,.txt,.tsv,.pdf" multiple>
           <button id="pasteToggleBtn" type="button" class="ghost">粘贴账单</button>
-          <button id="installBtn" type="button" class="ghost" hidden>安装</button>
+          <button id="installBtn" type="button" class="ghost" hidden>安装到手机</button>
           <button id="sampleBtn" type="button">载入示例</button>
-          <button id="clearBtn" type="button" class="ghost">清空</button>
+          <button id="clearBtn" type="button" class="ghost danger">清空</button>
         </div>
       </header>
 
@@ -54,7 +62,7 @@
       </section>
 
       <section class="workspace">
-        <aside class="panel">
+        <aside class="panel side-panel">
           <div class="panel-head">
             <h2>筛选</h2>
           </div>
@@ -73,8 +81,7 @@
             <input id="searchInput" type="search" placeholder="商户、备注、来源">
           </label>
           <div class="hint">
-            支持微信、支付宝导出的 CSV/TXT 账单。工具会自动跳过收入、退款和转账，只统计支出。
-            <span id="pwaStatus">手机上可添加到主屏幕并离线打开。</span>
+            支持微信支付交易明细证明、微信/支付宝 CSV 或 TXT 账单。<span id="pwaStatus">手机浏览器可添加到主屏幕。</span>
           </div>
         </aside>
 
@@ -85,11 +92,12 @@
                 <h2>粘贴账单</h2>
                 <p>复制微信或支付宝账单表格内容，粘贴后直接识别。</p>
               </div>
-              <button id="pasteImportBtn" type="button">识别粘贴内容</button>
+              <button id="pasteImportBtn" type="button">识别内容</button>
             </div>
-            <textarea id="pasteInput" rows="8" placeholder="在这里粘贴账单内容，包含表头如：交易时间、交易对方、收/支、金额（元）"></textarea>
-            <p id="pasteStatus" class="paste-status">适合手机使用：从账单文件、邮箱、表格或聊天记录复制文本后粘贴。</p>
+            <textarea id="pasteInput" rows="8" placeholder="在这里粘贴账单内容"></textarea>
+            <p id="pasteStatus" class="paste-status">适合从账单文件、邮箱、表格或聊天记录复制文本后导入。</p>
           </div>
+
           <div class="panel-head split">
             <div>
               <h2>分类概览</h2>
