@@ -366,11 +366,17 @@ function render() {
   els.todayCount.textContent = `${todayRecords.length} 笔`;
   els.sourceMix.textContent = sourceMix(monthRecords);
   els.activeMonthLabel.textContent = `${month} 分类支出`;
-  els.recordStatus.textContent = `${filteredMonthRecords.length} 笔匹配记录`;
+  els.recordStatus.textContent = recordStatusText(month, filteredMonthRecords);
 
   renderChart(categoryTotals);
   renderRecords(filteredMonthRecords);
   saveRecords();
+}
+
+function recordStatusText(month, list) {
+  const category = els.categoryFilter.value;
+  const categoryText = category === "all" ? "全部分类" : category;
+  return `${month} · ${categoryText} · ${list.length} 笔记录`;
 }
 
 function getVisibleRecords() {
@@ -401,13 +407,21 @@ function renderChart(totals) {
   }
 
   entries.forEach(([category, amount]) => {
-    const row = document.createElement("div");
+    const row = document.createElement("button");
     row.className = "category-row";
+    row.type = "button";
+    row.dataset.category = category;
+    if (els.categoryFilter.value === category) row.classList.add("active");
     row.innerHTML = `
       <strong>${category}</strong>
       <div class="bar"><span style="--width:${Math.max((amount / max) * 100, 4)}%; --color:${categoryColors[category]}"></span></div>
       <em>${formatMoney(amount)}</em>
     `;
+    row.addEventListener("click", () => {
+      els.categoryFilter.value = els.categoryFilter.value === category ? "all" : category;
+      render();
+      document.querySelector(".records-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
     els.categoryChart.append(row);
   });
 }

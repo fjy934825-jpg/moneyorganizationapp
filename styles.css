@@ -761,6 +761,26 @@ textarea {
   grid-template-columns: 88px minmax(120px, 1fr) 88px;
   align-items: center;
   gap: 12px;
+  width: 100%;
+  min-height: 42px;
+  padding: 10px 12px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: var(--ink);
+  background: transparent;
+  box-shadow: none;
+  text-align: left;
+}
+
+.category-row:hover {
+  transform: none;
+  border-color: rgba(23, 166, 91, 0.16);
+  background: rgba(240, 251, 243, 0.78);
+}
+
+.category-row.active {
+  border-color: rgba(23, 166, 91, 0.28);
+  background: #f0fbf3;
 }
 
 .bar {
