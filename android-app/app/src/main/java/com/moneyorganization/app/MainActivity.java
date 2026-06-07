@@ -50,6 +50,7 @@ public class MainActivity extends Activity {
     private LinearLayout content;
     private final SimpleDateFormat dateFormat = new SimpleDateFormat("MM-dd HH:mm", Locale.CHINA);
     private final Calendar selectedMonth = Calendar.getInstance();
+    private String selectedCategory = "";
     private int animatedIndex = 0;
     private Uri lastHandledImportUri;
 
@@ -79,11 +80,11 @@ public class MainActivity extends Activity {
     private void buildLayout() {
         ScrollView scrollView = new ScrollView(this);
         scrollView.setFillViewport(true);
-        scrollView.setBackgroundColor(0xFFF5F7F8);
+        scrollView.setBackgroundColor(0xFFF3F8F2);
 
         content = new LinearLayout(this);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setPadding(dp(18), dp(28), dp(18), dp(28));
+        content.setPadding(dp(18), dp(22), dp(18), dp(28));
         scrollView.addView(content);
         setContentView(scrollView);
     }
@@ -92,12 +93,8 @@ public class MainActivity extends Activity {
         content.removeAllViews();
         animatedIndex = 0;
 
-        TextView eyebrow = text("微信 / 支付宝通知自动记账", 13, 0xFF1F8A64, Typeface.BOLD);
-        content.addView(eyebrow);
-
-        TextView title = text("支出管家", 34, 0xFF15201D, Typeface.BOLD);
-        title.setPadding(0, dp(6), 0, dp(16));
-        content.addView(title);
+        content.addView(headerCard());
+        animateIn(content.getChildAt(content.getChildCount() - 1));
 
         content.addView(importCard());
         animateIn(content.getChildAt(content.getChildCount() - 1));
@@ -114,6 +111,7 @@ public class MainActivity extends Activity {
         int month = selectedMonth.get(Calendar.MONTH);
         List<ExpenseRecord> monthRecords = store.recordsForMonth(year, month);
         List<ExpenseRecord> yearRecords = store.recordsForYear(year);
+        List<ExpenseRecord> visibleRecords = filterBySelectedCategory(monthRecords);
 
         content.addView(monthSwitcher());
         animateIn(content.getChildAt(content.getChildCount() - 1));
@@ -125,9 +123,43 @@ public class MainActivity extends Activity {
         animateIn(content.getChildAt(content.getChildCount() - 1));
         content.addView(categoryCard(monthRecords));
         animateIn(content.getChildAt(content.getChildCount() - 1));
-        content.addView(recordsCard(monthRecords));
+        content.addView(recordsCard(visibleRecords, monthRecords.size()));
         animateIn(content.getChildAt(content.getChildCount() - 1));
         content.addView(clearButton());
+    }
+
+    private View headerCard() {
+        LinearLayout card = card(0xFFFFFFFF, 0x2217A65B);
+        LinearLayout row = row();
+
+        TextView icon = text("✓", 28, 0xFFFFFFFF, Typeface.BOLD);
+        icon.setGravity(Gravity.CENTER);
+        icon.setBackground(roundDrawable(0xFF17A65B, 14, 0));
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(dp(52), dp(52));
+        iconParams.setMargins(0, 0, dp(14), 0);
+        row.addView(icon, iconParams);
+
+        LinearLayout copy = new LinearLayout(this);
+        copy.setOrientation(LinearLayout.VERTICAL);
+        TextView eyebrow = text("微信 / 支付宝账单管理", 13, 0xFF0F8F4C, Typeface.BOLD);
+        TextView title = text("支出管家", 32, 0xFF131817, Typeface.BOLD);
+        TextView subtitle = text("导入账单、自动分类、按月查看每一笔支出", 14, 0xFF64716B, Typeface.NORMAL);
+        subtitle.setPadding(0, dp(6), 0, 0);
+        copy.addView(eyebrow);
+        copy.addView(title);
+        copy.addView(subtitle);
+        row.addView(copy, weightParams(1));
+        card.addView(row);
+        return card;
+    }
+
+    private List<ExpenseRecord> filterBySelectedCategory(List<ExpenseRecord> records) {
+        if (TextUtils.isEmpty(selectedCategory)) return records;
+        List<ExpenseRecord> filtered = new ArrayList<>();
+        for (ExpenseRecord record : records) {
+            if (selectedCategory.equals(record.category)) filtered.add(record);
+        }
+        return filtered;
     }
 
     private View monthSwitcher() {
@@ -168,9 +200,9 @@ public class MainActivity extends Activity {
     }
 
     private View importCard() {
-        LinearLayout card = card(0xFFFFFFFF, 0x223867C8);
+        LinearLayout card = card(0xFFF8FFFA, 0x2217A65B);
         TextView heading = text("导入以前的支付记录", 19, 0xFF15201D, Typeface.BOLD);
-        TextView body = text("选择微信或支付宝导出的 CSV/TXT 历史账单，App 会批量识别支出并自动去重。", 14, 0xFF63706C, Typeface.NORMAL);
+        TextView body = text("选择微信 PDF 交易明细证明，或微信/支付宝 CSV、TXT 账单，App 会批量识别并自动去重。", 14, 0xFF63706C, Typeface.NORMAL);
         body.setPadding(0, dp(8), 0, dp(14));
         Button button = button("选择账单文件");
         button.setOnClickListener(v -> openBillFilePicker());
@@ -181,10 +213,10 @@ public class MainActivity extends Activity {
     }
 
     private View summaryCard(List<ExpenseRecord> records) {
-        LinearLayout card = card(0xFFFFFFFF, 0x221F8A64);
-        TextView label = text(monthLabel() + "支出", 14, 0xFF63706C, Typeface.BOLD);
-        TextView total = text(money(store.sum(records)), 32, 0xFF15201D, Typeface.BOLD);
-        TextView count = text(records.size() + " 笔支出", 14, 0xFF63706C, Typeface.NORMAL);
+        LinearLayout card = card(0xFF17A65B, 0x00000000);
+        TextView label = text(monthLabel() + "支出", 14, 0xDFFFFFFF, Typeface.BOLD);
+        TextView total = text(money(store.sum(records)), 32, 0xFFFFFFFF, Typeface.BOLD);
+        TextView count = text(records.size() + " 笔支出", 14, 0xCCFFFFFF, Typeface.NORMAL);
         card.addView(label);
         card.addView(total);
         card.addView(count);
@@ -192,10 +224,10 @@ public class MainActivity extends Activity {
     }
 
     private View budgetCard(List<ExpenseRecord> records) {
-        LinearLayout card = card(0xFF15201D, 0x00000000);
+        LinearLayout card = card(0xFF131817, 0x00000000);
         double total = store.sum(records);
         double progress = Math.min(total / BudgetNotifier.MONTHLY_LIMIT, 1.0);
-        int barColor = total >= BudgetNotifier.MONTHLY_LIMIT ? 0xFFCF4B45 : 0xFF1F8A64;
+        int barColor = total >= BudgetNotifier.MONTHLY_LIMIT ? 0xFFEF5B52 : 0xFF17A65B;
 
         TextView label = text("每月红线", 14, 0xBBFFFFFF, Typeface.BOLD);
         TextView amount = text(money(total) + " / " + money(BudgetNotifier.MONTHLY_LIMIT), 24, 0xFFFFFFFF, Typeface.BOLD);
@@ -247,7 +279,23 @@ public class MainActivity extends Activity {
 
     private View categoryCard(List<ExpenseRecord> records) {
         LinearLayout card = card(0xFFFFFFFF, 0x00000000);
-        card.addView(text("分类概览", 19, 0xFF15201D, Typeface.BOLD));
+        LinearLayout header = row();
+        header.setPadding(0, 0, 0, dp(4));
+        header.addView(text("分类概览", 19, 0xFF15201D, Typeface.BOLD), weightParams(1));
+        if (!TextUtils.isEmpty(selectedCategory)) {
+            Button all = chip("全部");
+            all.setOnClickListener(v -> {
+                selectedCategory = "";
+                render();
+            });
+            header.addView(all);
+        }
+        card.addView(header);
+
+        TextView hint = text(TextUtils.isEmpty(selectedCategory) ? "点分类查看本月该类全部记录" : "正在查看：" + selectedCategory, 13, 0xFF64716B, Typeface.NORMAL);
+        hint.setPadding(0, 0, 0, dp(8));
+        card.addView(hint);
+
         Map<String, Double> totals = store.categoryTotals(records);
         if (totals.isEmpty()) {
             TextView empty = text("还没有自动识别到支出。", 14, 0xFF63706C, Typeface.NORMAL);
@@ -257,27 +305,45 @@ public class MainActivity extends Activity {
         }
 
         for (Map.Entry<String, Double> entry : totals.entrySet()) {
-            LinearLayout row = row();
-            row.addView(text(entry.getKey(), 15, 0xFF15201D, Typeface.BOLD), weightParams(1));
+            LinearLayout row = categoryRow(entry.getKey());
+            TextView name = text(entry.getKey(), 15, selectedCategory.equals(entry.getKey()) ? 0xFF0F8F4C : 0xFF15201D, Typeface.BOLD);
+            row.addView(name, weightParams(1));
             TextView amount = text(money(entry.getValue()), 15, 0xFF63706C, Typeface.NORMAL);
             amount.setGravity(Gravity.END);
             row.addView(amount, weightParams(1));
+            row.setOnClickListener(v -> {
+                selectedCategory = selectedCategory.equals(entry.getKey()) ? "" : entry.getKey();
+                render();
+            });
             card.addView(row);
         }
         return card;
     }
 
-    private View recordsCard(List<ExpenseRecord> records) {
+    private LinearLayout categoryRow(String category) {
+        LinearLayout row = row();
+        row.setPadding(dp(12), dp(11), dp(12), dp(11));
+        int fill = selectedCategory.equals(category) ? 0xFFF0FBF3 : 0xFFFBFDFC;
+        int stroke = selectedCategory.equals(category) ? 0x3317A65B : 0x00000000;
+        row.setBackground(roundDrawable(fill, 12, stroke));
+        return row;
+    }
+
+    private View recordsCard(List<ExpenseRecord> records, int monthCount) {
         LinearLayout card = card(0xFFFFFFFF, 0x00000000);
-        card.addView(text("最近记录", 19, 0xFF15201D, Typeface.BOLD));
+        String title = TextUtils.isEmpty(selectedCategory) ? "最近记录" : selectedCategory + "记录";
+        card.addView(text(title, 19, 0xFF15201D, Typeface.BOLD));
+        TextView status = text(monthLabel() + " · " + (TextUtils.isEmpty(selectedCategory) ? "全部分类" : selectedCategory) + " · " + records.size() + " / " + monthCount + " 笔", 13, 0xFF64716B, Typeface.NORMAL);
+        status.setPadding(0, dp(6), 0, dp(8));
+        card.addView(status);
         if (records.isEmpty()) {
-            TextView empty = text("开启通知使用权后，微信/支付宝付款通知会出现在这里。", 14, 0xFF63706C, Typeface.NORMAL);
+            TextView empty = text(TextUtils.isEmpty(selectedCategory) ? "开启通知使用权后，微信/支付宝付款通知会出现在这里。" : "这个月还没有" + selectedCategory + "支出。", 14, 0xFF63706C, Typeface.NORMAL);
             empty.setPadding(0, dp(10), 0, 0);
             card.addView(empty);
             return card;
         }
 
-        int limit = Math.min(records.size(), 20);
+        int limit = TextUtils.isEmpty(selectedCategory) ? Math.min(records.size(), 20) : records.size();
         for (int index = 0; index < limit; index++) {
             ExpenseRecord record = records.get(index);
             LinearLayout item = new LinearLayout(this);
